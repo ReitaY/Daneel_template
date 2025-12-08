@@ -1,6 +1,14 @@
 # Daneel_template
 
-Project-specific layered ROS 2 dev & deploy environment on top of **Daneel**.
+Project-specific layered ROS 2 dev & deploy environment on top of **[Daneel](https://github.com/ReitaY/Daneel)**.
+
+On top of Daneel’s base images, this template ships a **noVNC + Fluxbox desktop**
+so you can open a full Linux / ROS 2 dev environment from **any OS** (Windows,
+macOS, Linux) as long as you have a browser.
+
+<p align="center">
+  <img src="docs/images/daneel_desktop.gif" alt="Daneel_template concept" width="800">
+</p>
 
 This repository provides a template for building per-project images on top of
 Daneel’s base images, and for deploying them to a robot with as little friction
@@ -13,7 +21,7 @@ as possible.
 Daneel_template is a **project layer** that sits on top of the generic
 Daneel images:
 
-- **Daneel**  
+- **[Daneel](https://github.com/ReitaY/Daneel)**  
   - Provides common ROS 2 base images:
     - `daneel_base:<ROS_DISTRO>`
     - `daneel_desktop:<ROS_DISTRO>`
