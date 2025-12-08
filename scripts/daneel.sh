@@ -36,7 +36,7 @@ fi
 # プロジェクト名（なければ template）
 PROJECT_NAME="${PROJECT_NAME:-template}"
 
-# 画像プレフィックス:
+# イメージプレフィックス:
 #  1. .env の DANEEL_IMAGE_PREFIX を優先
 #  2. 無ければ PROJECT_NAME
 #  3. それも無ければ daneel_template
@@ -47,10 +47,23 @@ DEV_IMAGE="${DANEEL_DEV_IMAGE:-${IMAGE_PREFIX}-dev:latest}"
 RUNTIME_IMAGE="${DANEEL_RUNTIME_IMAGE:-${IMAGE_PREFIX}-runtime:latest}"
 DEPLOY_IMAGE="${DANEEL_DEPLOY_IMAGE:-${IMAGE_PREFIX}-deploy:latest}"
 
-# Base / Desktop イメージ（必要であれば Dockerfile の build-arg などに使用）
+# Base / Desktop イメージ（Dockerfile の build-arg に使用）
 ROS_DISTRO="${ROS_DISTRO:-humble}"
-DANEEL_BASE_IMAGE="${DANEEL_BASE_IMAGE:-daneel_base:${ROS_DISTRO}}"
-DANEEL_DESKTOP_IMAGE="${DANEEL_DESKTOP_IMAGE:-daneel_desktop:${ROS_DISTRO}}"
+DANEEL_USE_LOCAL_BUILD="${DANEEL_USE_LOCAL_BUILD:-0}"
+
+# DANEEL_BASE_IMAGE / DANEEL_DESKTOP_IMAGE が未設定なら、
+# DANEEL_USE_LOCAL_BUILD の値に応じてデフォルトを決める
+if [[ -z "${DANEEL_BASE_IMAGE:-}" || -z "${DANEEL_DESKTOP_IMAGE:-}" ]]; then
+  if [[ "${DANEEL_USE_LOCAL_BUILD}" == "1" ]]; then
+    # ローカルビルドを前提としたタグ
+    DANEEL_BASE_IMAGE="${DANEEL_BASE_IMAGE:-daneel_base:${ROS_DISTRO}}"
+    DANEEL_DESKTOP_IMAGE="${DANEEL_DESKTOP_IMAGE:-daneel_desktop:${ROS_DISTRO}}"
+  else
+    # レジストリから pull することを前提としたタグ
+    DANEEL_BASE_IMAGE="${DANEEL_BASE_IMAGE:-ghcr.io/reitay/daneel_base:${ROS_DISTRO}}"
+    DANEEL_DESKTOP_IMAGE="${DANEEL_DESKTOP_IMAGE:-ghcr.io/reitay/daneel_desktop:${ROS_DISTRO}}"
+  fi
+fi
 
 # docker compose コマンド検出（docker compose を優先）
 if command -v docker &>/dev/null && docker compose version &>/dev/null; then
@@ -78,9 +91,15 @@ Environment (via .env or shell):
   PROJECT_NAME          (default: template)
   ROS_DISTRO            (default: humble)
 
-  # Daneel base images (built separately, e.g. from daneel repo)
-  DANEEL_BASE_IMAGE     (default: daneel_base:\${ROS_DISTRO})
-  DANEEL_DESKTOP_IMAGE  (default: daneel_desktop:\${ROS_DISTRO})
+  # Daneel base images (built locally or pulled from registry)
+  #   when DANEEL_USE_LOCAL_BUILD=0:
+  #     ghcr.io/reitay/daneel-base:\${ROS_DISTRO}
+  #     ghcr.io/reitay/daneel-desktop:\${ROS_DISTRO}
+  #   when DANEEL_USE_LOCAL_BUILD=1:
+  #     daneel-base:\${ROS_DISTRO}
+  #     daneel-desktop:\${ROS_DISTRO}
+  DANEEL_BASE_IMAGE
+  DANEEL_DESKTOP_IMAGE
 
   # Project images
   DANEEL_IMAGE_PREFIX   (default: \${PROJECT_NAME} or daneel_template)
@@ -96,7 +115,7 @@ Environment (via .env or shell):
 
   # ROS networking
   ROS_DOMAIN_ID         (default: 0)
-  RMW_IMPLEMENTATION    (default: rmw_cyclonedds_cpp)
+  RMW_IMPLEMENTATION    (default: rmw_fastrtps_cpp)
 
   # Robot deploy
   ROBOT_HOST            (default: robot)
@@ -179,7 +198,7 @@ cmd_init() {
   echo
   echo ">>> ROS networking"
   prompt_var ROS_DOMAIN_ID      "ROS_DOMAIN_ID"      "0"
-  prompt_var RMW_IMPLEMENTATION "RMW_IMPLEMENTATION" "rmw_cyclonedds_cpp"
+  prompt_var RMW_IMPLEMENTATION "RMW_IMPLEMENTATION" "rmw_fastrtps_cpp"
 
   echo
   echo ">>> Robot deploy settings"
@@ -199,8 +218,14 @@ cmd_init() {
   DANEEL_DEPLOY_IMAGE="${DANEEL_IMAGE_PREFIX}-deploy:latest"
 
   # Base / desktop images は ROS_DISTRO からの派生を書く
-  DANEEL_BASE_IMAGE="daneel_base:\${ROS_DISTRO}"
-  DANEEL_DESKTOP_IMAGE="daneel_desktop:\${ROS_DISTRO}"
+  # （ここでは文字列に \${ROS_DISTRO} を埋め込み、起動時に展開される想定）
+  if [[ "${DANEEL_USE_LOCAL_BUILD}" == "1" ]]; then
+    DANEEL_BASE_IMAGE="daneel-base:\${ROS_DISTRO}"
+    DANEEL_DESKTOP_IMAGE="daneel-desktop:\${ROS_DISTRO}"
+  else
+    DANEEL_BASE_IMAGE="ghcr.io/reitay/daneel-base:\${ROS_DISTRO}"
+    DANEEL_DESKTOP_IMAGE="ghcr.io/reitay/daneel-desktop:\${ROS_DISTRO}"
+  fi
 
   # ---- Write .env ----
   cat > "${env_path}" <<EOF
@@ -242,7 +267,9 @@ EOF
   echo "[daneel] wrote .env:"
   echo "  - PROJECT_NAME = ${PROJECT_NAME}"
   echo "  - ROS_DISTRO   = ${ROS_DISTRO}"
-  echo "  - IMAGE_PREFIX = ${DANEEL_IMAGE_PREFIX}"
+  echo "  - DANEEL_USE_LOCAL_BUILD = ${DANEEL_USE_LOCAL_BUILD}"
+  echo "  - DANEEL_BASE_IMAGE      = ${DANEEL_BASE_IMAGE}"
+  echo "  - DANEEL_DESKTOP_IMAGE   = ${DANEEL_DESKTOP_IMAGE}"
   echo
 
   echo "[daneel] init done."
@@ -250,28 +277,44 @@ EOF
 
 cmd_build_dev() {
   echo "[daneel] build dev image: ${DEV_IMAGE}"
+  echo "[daneel]   using desktop base: ${DANEEL_DESKTOP_IMAGE}"
 
+  ensure_file "${PROJECT_DOCKER_DIR}/Dockerfile.runtime"
   ensure_file "${PROJECT_DOCKER_DIR}/Dockerfile.desktop"
 
+  DEV_IMAGE_TEMP="temp-dev:latest"
+
   docker build \
+    --build-arg RUNTIME_BASE_IMAGE="${DANEEL_DESKTOP_IMAGE}" \
+    -f "${PROJECT_DOCKER_DIR}/Dockerfile.runtime" \
+    -t "${DEV_IMAGE_TEMP}" \
+    "${REPO_ROOT}"
+
+  docker build \
+    --build-arg DESKTOP_BASE_IMAGE="${DEV_IMAGE_TEMP}" \
     -f "${PROJECT_DOCKER_DIR}/Dockerfile.desktop" \
     -t "${DEV_IMAGE}" \
     "${REPO_ROOT}"
+
+  # 一時イメージを削除
+  docker rmi "${DEV_IMAGE_TEMP}"
 }
 
 cmd_build_runtime() {
   echo "[daneel] build runtime image: ${RUNTIME_IMAGE}"
+  echo "[daneel]   using runtime base: ${DANEEL_BASE_IMAGE}"
 
   ensure_file "${PROJECT_DOCKER_DIR}/Dockerfile.runtime"
 
   docker build \
+    --build-arg RUNTIME_BASE_IMAGE="${DANEEL_BASE_IMAGE}" \
     -f "${PROJECT_DOCKER_DIR}/Dockerfile.runtime" \
     -t "${RUNTIME_IMAGE}" \
     "${REPO_ROOT}"
 }
 
 cmd_deploy() {
-  echo "[daneel] build deploy image (FROM runtime): ${DEPLOY_IMAGE}"
+  echo "[daneel] build deploy image (FROM runtime : ${RUNTIME_IMAGE}): ${DEPLOY_IMAGE}"
   ensure_file "${DEPLOY_DOCKER_DIR}/Dockerfile.deploy"
 
   # runtime イメージが無ければビルド（or pull）を試みる
