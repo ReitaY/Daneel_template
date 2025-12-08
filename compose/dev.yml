@@ -1,0 +1,29 @@
+services:
+  dev_desktop:
+    image: ${DANEEL_DEV_IMAGE}
+    container_name: ${PROJECT_NAME}-dev-desktop
+    env_file:
+      - ../.env
+
+    # noVNC / VNC をホストに公開
+    ports:
+      - "${NOVNC_PORT}:8080"  # コンテナ側は 8080 前提（noVNC）
+      - "${VNC_PORT}:5901"    # コンテナ側は 5901 前提（VNC）
+
+    environment:
+      # ROS 関連
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
+      # デスクトップ用（必要なら）
+      - DISPLAY_WIDTH=${DISPLAY_WIDTH}
+      - DISPLAY_HEIGHT=${DISPLAY_HEIGHT}
+
+    # ワークスペースをホストと共有（CWD がリポジトリルート前提）
+    volumes:
+      - ../ros2_ws:/home/daneel/ros2_ws
+
+    # 開発用にシェルで入れるようにしておく
+    stdin_open: true
+    tty: true
+
+    # network_mode: host

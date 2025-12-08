@@ -1,0 +1,23 @@
+services:
+  robot:
+    image: ${DANEEL_DEPLOY_IMAGE}
+    container_name: ${PROJECT_NAME}-robot
+    env_file:
+      - ../.env
+
+    # ロボット上では host ネットワーク前提にしておくと ROS2 が楽
+    network_mode: host
+
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
+
+    # ロボット側のスタックディレクトリをコンテナにもマウント（任意）
+    # 例: ログ、設定ファイル、追加の launch をここに置く想定
+    volumes:
+      - ${ROBOT_STACK_DIR}:/opt/daneel_stack
+
+    # 必要なら、タイムゾーンをホストと揃える
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${ROBOT_STACK_DIR}:/opt/daneel_stack
