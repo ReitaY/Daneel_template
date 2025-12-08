@@ -1,0 +1,30 @@
+# ベースになるランタイムイメージ
+ARG RUNTIME_IMAGE="ghcr.io/reitay/daneel_base:humble"
+FROM ${RUNTIME_IMAGE}
+
+# ROS_DISTRO はベースと合わせる
+ARG ROS_DISTRO=humble
+ENV ROS_DISTRO=${ROS_DISTRO}
+
+# ====== ROS2 workspace の実体は /ros2_ws に置く =======================
+WORKDIR /ros2_ws
+
+# ローカルリポジトリの ros2_ws/src をコピー
+COPY ros2_ws/src ./src
+
+# colcon build（ここで --symlink-install してOK。/ros2_ws は消さないので）
+RUN bash -lc "set -e \
+  && if [ -f /opt/ros/${ROS_DISTRO}/setup.bash ]; then \
+       source /opt/ros/${ROS_DISTRO}/setup.bash; \
+     fi \
+  && colcon build --symlink-install"
+
+# ====== /home/${USER}/ros2_ws からも見えるようにする =================
+# 実際のユーザのホームディレクトリを調べて、そこに symlink を張る
+RUN set -e \
+  && user_home=\"$(getent passwd \"$(id -u)\" | cut -d: -f6 || echo /root)\" \
+  && mkdir -p \"${user_home}\" \
+  && ln -s /ros2_ws \"${user_home}/ros2_ws\" || true
+
+# お好みで最終的な作業ディレクトリを /ros2_ws に固定
+WORKDIR /ros2_ws

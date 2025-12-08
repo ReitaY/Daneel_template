@@ -1,0 +1,2 @@
+ARG DESKTOP_BASE_IMAGE="ghcr.io/reitay/daneel-desktop:humble"
+FROM ${DESKTOP_BASE_IMAGE}

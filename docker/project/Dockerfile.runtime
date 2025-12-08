@@ -1,0 +1,2 @@
+ARG RUNTIME_BASE_IMAGE="ghcr.io/reitay/daneel-base:humble"
+FROM ${RUNTIME_BASE_IMAGE}
