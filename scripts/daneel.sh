@@ -93,11 +93,11 @@ Environment (via .env or shell):
 
   # Daneel base images (built locally or pulled from registry)
   #   when DANEEL_USE_LOCAL_BUILD=0:
-  #     ghcr.io/reitay/daneel-base:\${ROS_DISTRO}
-  #     ghcr.io/reitay/daneel-desktop:\${ROS_DISTRO}
+  #     ghcr.io/reitay/daneel_base:\${ROS_DISTRO}
+  #     ghcr.io/reitay/daneel_desktop:\${ROS_DISTRO}
   #   when DANEEL_USE_LOCAL_BUILD=1:
-  #     daneel-base:\${ROS_DISTRO}
-  #     daneel-desktop:\${ROS_DISTRO}
+  #     daneel_base:\${ROS_DISTRO}
+  #     daneel_desktop:\${ROS_DISTRO}
   DANEEL_BASE_IMAGE
   DANEEL_DESKTOP_IMAGE
 
@@ -220,11 +220,11 @@ cmd_init() {
   # Base / desktop images は ROS_DISTRO からの派生を書く
   # （ここでは文字列に \${ROS_DISTRO} を埋め込み、起動時に展開される想定）
   if [[ "${DANEEL_USE_LOCAL_BUILD}" == "1" ]]; then
-    DANEEL_BASE_IMAGE="daneel-base:\${ROS_DISTRO}"
-    DANEEL_DESKTOP_IMAGE="daneel-desktop:\${ROS_DISTRO}"
+    DANEEL_BASE_IMAGE="daneel_base:\${ROS_DISTRO}"
+    DANEEL_DESKTOP_IMAGE="daneel_desktop:\${ROS_DISTRO}"
   else
-    DANEEL_BASE_IMAGE="ghcr.io/reitay/daneel-base:\${ROS_DISTRO}"
-    DANEEL_DESKTOP_IMAGE="ghcr.io/reitay/daneel-desktop:\${ROS_DISTRO}"
+    DANEEL_BASE_IMAGE="ghcr.io/reitay/daneel_base:\${ROS_DISTRO}"
+    DANEEL_DESKTOP_IMAGE="ghcr.io/reitay/daneel_desktop:\${ROS_DISTRO}"
   fi
 
   # ---- Write .env ----
