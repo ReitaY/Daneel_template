@@ -286,12 +286,14 @@ cmd_build_dev() {
 
   docker build \
     --build-arg RUNTIME_BASE_IMAGE="${DANEEL_DESKTOP_IMAGE}" \
+    --build-arg ROS_DISTRO="${ROS_DISTRO}" \
     -f "${PROJECT_DOCKER_DIR}/Dockerfile.runtime" \
     -t "${DEV_IMAGE_TEMP}" \
     "${REPO_ROOT}"
 
   docker build \
     --build-arg DESKTOP_BASE_IMAGE="${DEV_IMAGE_TEMP}" \
+    --build-arg ROS_DISTRO="${ROS_DISTRO}" \
     -f "${PROJECT_DOCKER_DIR}/Dockerfile.desktop" \
     -t "${DEV_IMAGE}" \
     "${REPO_ROOT}"
@@ -308,6 +310,7 @@ cmd_build_runtime() {
 
   docker build \
     --build-arg RUNTIME_BASE_IMAGE="${DANEEL_BASE_IMAGE}" \
+    --build-arg ROS_DISTRO="${ROS_DISTRO}" \
     -f "${PROJECT_DOCKER_DIR}/Dockerfile.runtime" \
     -t "${RUNTIME_IMAGE}" \
     "${REPO_ROOT}"
