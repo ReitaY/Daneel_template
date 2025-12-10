@@ -1,2 +1,32 @@
-ARG RUNTIME_BASE_IMAGE="ghcr.io/reitay/daneel-base:humble"
+# ======================================================================
+# Project runtime image
+# ----------------------------------------------------------------------
+# This image extends the shared Daneel runtime image.
+# By default it only inherits the daneel-base environment.
+# If your project needs extra CLI tools or runtime dependencies,
+# uncomment the section below and add your packages there.
+# ======================================================================
+ARG RUNTIME_BASE_IMAGE="ghcr.io/reitay/daneel-runtime:humble"
 FROM ${RUNTIME_BASE_IMAGE}
+
+# ======================================================================
+# Optional: project-specific runtime customization
+# ----------------------------------------------------------------------
+# 1. Uncomment ARG/USER lines
+# 2. Uncomment the RUN block
+# 3. Add any additional packages you want to install
+#    (e.g. extra ROS 2 packages, debugging tools, etc.)
+# ======================================================================
+# ARG USER_NAME=daneel
+#
+# USER root
+#
+# RUN set -eux; \
+#     apt-get update && \
+#     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+#         # add extra runtime packages here, e.g. \
+#         # iputils-ping \
+#         # net-tools \
+#     && rm -rf /var/lib/apt/lists/*
+#
+# USER ${USER_NAME}

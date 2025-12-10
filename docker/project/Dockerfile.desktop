@@ -1,2 +1,31 @@
+# ======================================================================
+# Project desktop image
+# ----------------------------------------------------------------------
+# This image extends the shared Daneel desktop image.
+# By default it only inherits the base desktop environment.
+# If you need extra GUI tools or debug utilities, uncomment the section
+# below and add your packages there.
+# ======================================================================
 ARG DESKTOP_BASE_IMAGE="ghcr.io/reitay/daneel-desktop:humble"
 FROM ${DESKTOP_BASE_IMAGE}
+
+# ======================================================================
+# Optional: project-specific desktop customization
+# ----------------------------------------------------------------------
+# 1. Uncomment ARG/USER lines
+# 2. Uncomment the RUN block
+# 3. Add any additional packages you want to install
+# ======================================================================
+# ARG USER_NAME=daneel
+#
+# USER root
+#
+# RUN set -eux; \
+#     apt-get update && \
+#     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+#         # add extra desktop packages here, e.g. \
+#         # gedit \
+#         # xterm \
+#     && rm -rf /var/lib/apt/lists/*
+#
+# USER ${USER_NAME}
