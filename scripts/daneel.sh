@@ -6,9 +6,9 @@ set -euo pipefail
 #
 # Usage examples:
 #   ./scripts/daneel.sh init
-#   ./scripts/daneel.sh build --dev
-#   ./scripts/daneel.sh build --runtime
-#   ./scripts/daneel.sh deploy
+#   ./scripts/daneel.sh build --dev [--platform linux/amd64]
+#   ./scripts/daneel.sh build --runtime [--platform linux/arm64]
+#   ./scripts/daneel.sh deploy [--platform linux/amd64]
 #   ./scripts/daneel.sh dev up|down|shell
 #   ./scripts/daneel.sh robot up|down
 # --------------------------------------------------------------------
@@ -80,8 +80,8 @@ usage() {
   cat <<EOF
 Usage:
   $(basename "$0") init
-  $(basename "$0") build --dev|--runtime
-  $(basename "$0") deploy
+  $(basename "$0") build --dev|--runtime [--platform <os/arch>]
+  $(basename "$0") deploy [--platform <os/arch>]
   $(basename "$0") dev up|down|shell
   $(basename "$0") robot up|down
 
@@ -125,6 +125,10 @@ Environment (via .env or shell):
   # Optional: local Daneel repo
   DANEEL_USE_LOCAL_BUILD (default: 0)
   DANEEL_LOCAL_DIR       (default: ./daneel)
+
+  # Optional: build target platform (e.g. linux/amd64, linux/arm64)
+  # If empty/unset, follows host default behavior (no --platform is passed).
+  DANEEL_BUILD_PLATFORM
 EOF
 }
 
@@ -158,6 +162,26 @@ prompt_var() {
     printf -v "$var_name" '%s' "${show_default}"
   else
     printf -v "$var_name" '%s' "${input}"
+  fi
+}
+
+# ---------------------- build platform (optional) ---------------------
+# env default (can be overridden by CLI --platform)
+BUILD_PLATFORM_DEFAULT="${DANEEL_BUILD_PLATFORM:-}"
+
+docker_build() {
+  # usage: docker_build "<platform_or_empty>" <docker build args...>
+  local platform="${1:-}"; shift || true
+
+  if [[ -n "${platform}" ]]; then
+    # Prefer buildx when available (more reliable for cross-arch) and load into local docker
+    if docker buildx version &>/dev/null; then
+      docker buildx build --load --platform "${platform}" "$@"
+    else
+      docker build --platform "${platform}" "$@"
+    fi
+  else
+    docker build "$@"
   fi
 }
 
@@ -278,20 +302,21 @@ EOF
 cmd_build_dev() {
   echo "[daneel] build dev image: ${DEV_IMAGE}"
   echo "[daneel]   using desktop base: ${DANEEL_DESKTOP_IMAGE}"
+  echo "[daneel]   build platform: ${BUILD_PLATFORM:-<host default>}"
 
   ensure_file "${PROJECT_DOCKER_DIR}/Dockerfile.runtime"
   ensure_file "${PROJECT_DOCKER_DIR}/Dockerfile.desktop"
 
   DEV_IMAGE_TEMP="temp-dev:latest"
 
-  docker build \
+  docker_build "${BUILD_PLATFORM:-}" \
     --build-arg RUNTIME_BASE_IMAGE="${DANEEL_DESKTOP_IMAGE}" \
     --build-arg ROS_DISTRO="${ROS_DISTRO}" \
     -f "${PROJECT_DOCKER_DIR}/Dockerfile.runtime" \
     -t "${DEV_IMAGE_TEMP}" \
     "${REPO_ROOT}/docker/project"
 
-  docker build \
+  docker_build "${BUILD_PLATFORM:-}" \
     --build-arg DESKTOP_BASE_IMAGE="${DEV_IMAGE_TEMP}" \
     --build-arg ROS_DISTRO="${ROS_DISTRO}" \
     -f "${PROJECT_DOCKER_DIR}/Dockerfile.desktop" \
@@ -305,10 +330,11 @@ cmd_build_dev() {
 cmd_build_runtime() {
   echo "[daneel] build runtime image: ${RUNTIME_IMAGE}"
   echo "[daneel]   using runtime base: ${DANEEL_BASE_IMAGE}"
+  echo "[daneel]   build platform: ${BUILD_PLATFORM:-<host default>}"
 
   ensure_file "${PROJECT_DOCKER_DIR}/Dockerfile.runtime"
 
-  docker build \
+  docker_build "${BUILD_PLATFORM:-}" \
     --build-arg RUNTIME_BASE_IMAGE="${DANEEL_BASE_IMAGE}" \
     --build-arg ROS_DISTRO="${ROS_DISTRO}" \
     -f "${PROJECT_DOCKER_DIR}/Dockerfile.runtime" \
@@ -318,6 +344,7 @@ cmd_build_runtime() {
 
 cmd_deploy() {
   echo "[daneel] build deploy image (FROM runtime : ${RUNTIME_IMAGE}): ${DEPLOY_IMAGE}"
+  echo "[daneel]   build platform: ${BUILD_PLATFORM:-<host default>}"
   ensure_file "${DEPLOY_DOCKER_DIR}/Dockerfile.deploy"
 
   # runtime イメージが無ければビルド（or pull）を試みる
@@ -326,11 +353,11 @@ cmd_deploy() {
     cmd_build_runtime
   fi
 
-  docker build \
+  docker_build "${BUILD_PLATFORM:-}" \
     --build-arg RUNTIME_IMAGE="${RUNTIME_IMAGE}" \
     -f "${DEPLOY_DOCKER_DIR}/Dockerfile.deploy" \
     -t "${DEPLOY_IMAGE}" \
-    "${REPO_ROOT}"
+    "${REPO_ROOT}/docker/deploy"
 
   echo "[daneel] deploy image built: ${DEPLOY_IMAGE}"
   echo "        (push / save / upload は別スクリプト or 手動で実行してください)"
@@ -393,17 +420,59 @@ main() {
       ;;
     build)
       local mode="${1:-}"; shift || true
+
+      # default from env (can be empty)
+      BUILD_PLATFORM="${BUILD_PLATFORM_DEFAULT}"
+
+      # parse optional args: --platform linux/amd64 or --platform=linux/amd64
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --platform)
+            BUILD_PLATFORM="${2:-}"
+            shift 2 || true
+            ;;
+          --platform=*)
+            BUILD_PLATFORM="${1#*=}"
+            shift || true
+            ;;
+          *)
+            echo "Unknown option for build: $1" >&2
+            exit 1
+            ;;
+        esac
+      done
+
       case "${mode}" in
-        --dev)     cmd_build_dev "$@" ;;
-        --runtime) cmd_build_runtime "$@" ;;
+        --dev)     cmd_build_dev ;;
+        --runtime) cmd_build_runtime ;;
         *)
-          echo "Usage: $(basename "$0") build --dev|--runtime" >&2
+          echo "Usage: $(basename "$0") build --dev|--runtime [--platform <os/arch>]" >&2
           exit 1
           ;;
       esac
       ;;
     deploy)
-      cmd_deploy "$@"
+      # default from env (can be empty)
+      BUILD_PLATFORM="${BUILD_PLATFORM_DEFAULT}"
+
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --platform)
+            BUILD_PLATFORM="${2:-}"
+            shift 2 || true
+            ;;
+          --platform=*)
+            BUILD_PLATFORM="${1#*=}"
+            shift || true
+            ;;
+          *)
+            echo "Unknown option for deploy: $1" >&2
+            exit 1
+            ;;
+        esac
+      done
+
+      cmd_deploy
       ;;
     dev)
       cmd_dev "$@"
