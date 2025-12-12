@@ -289,14 +289,14 @@ cmd_build_dev() {
     --build-arg ROS_DISTRO="${ROS_DISTRO}" \
     -f "${PROJECT_DOCKER_DIR}/Dockerfile.runtime" \
     -t "${DEV_IMAGE_TEMP}" \
-    "${REPO_ROOT}"
+    "${REPO_ROOT}/docker/project"
 
   docker build \
     --build-arg DESKTOP_BASE_IMAGE="${DEV_IMAGE_TEMP}" \
     --build-arg ROS_DISTRO="${ROS_DISTRO}" \
     -f "${PROJECT_DOCKER_DIR}/Dockerfile.desktop" \
     -t "${DEV_IMAGE}" \
-    "${REPO_ROOT}"
+    "${REPO_ROOT}/docker/project"
 
   # 一時イメージを削除
   docker rmi "${DEV_IMAGE_TEMP}"
@@ -313,7 +313,7 @@ cmd_build_runtime() {
     --build-arg ROS_DISTRO="${ROS_DISTRO}" \
     -f "${PROJECT_DOCKER_DIR}/Dockerfile.runtime" \
     -t "${RUNTIME_IMAGE}" \
-    "${REPO_ROOT}"
+    "${REPO_ROOT}/docker/project"
 }
 
 cmd_deploy() {
