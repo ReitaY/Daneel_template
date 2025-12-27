@@ -396,7 +396,7 @@ cmd_dev() {
       else
         echo "[daneel] dev up (compose/dev.yml)"
       fi
-      "${DOCKER_COMPOSE[@]}" "${compose_files[@]}" up -d "${remaining_args[@]}"
+      "${DOCKER_COMPOSE[@]}" "${compose_files[@]}" up -d ${remaining_args[@]+"${remaining_args[@]}"}
       ;;
     down)
       if [[ "${use_host}" == "1" ]]; then
@@ -404,11 +404,14 @@ cmd_dev() {
       else
         echo "[daneel] dev down (compose/dev.yml)"
       fi
-      "${DOCKER_COMPOSE[@]}" "${compose_files[@]}" down "${remaining_args[@]}"
+      "${DOCKER_COMPOSE[@]}" "${compose_files[@]}" down ${remaining_args[@]+"${remaining_args[@]}"}
       ;;
     shell)
       # デフォルトサービス名は dev デスクトップ側を想定
-      local svc="${remaining_args[0]:-dev_desktop}"
+      local svc="dev_desktop"
+      if [[ ${#remaining_args[@]} -gt 0 ]]; then
+        svc="${remaining_args[0]}"
+      fi
       echo "[daneel] dev shell into service: ${svc}"
       "${DOCKER_COMPOSE[@]}" "${compose_files[@]}" exec "${svc}" bash
       ;;
