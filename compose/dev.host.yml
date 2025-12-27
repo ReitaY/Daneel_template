@@ -1,0 +1,7 @@
+services:
+  dev_desktop:
+    network_mode: host
+    ipc: host
+    privileged: true
+    devices:
+      - "/dev:/dev"

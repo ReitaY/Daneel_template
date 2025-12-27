@@ -82,7 +82,7 @@ Usage:
   $(basename "$0") init
   $(basename "$0") build --dev|--runtime [--platform <os/arch>]
   $(basename "$0") deploy [--platform <os/arch>]
-  $(basename "$0") dev up|down|shell
+  $(basename "$0") dev up|down|shell [--host]
   $(basename "$0") robot up|down
 
 Environment (via .env or shell):
@@ -367,23 +367,53 @@ cmd_dev() {
   local sub="${1:-}"; shift || true
   ensure_file "${COMPOSE_DEV}"
 
+  local use_host=0
+  local remaining_args=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --host)
+        use_host=1
+        shift
+        ;;
+      *)
+        remaining_args+=("$1")
+        shift
+        ;;
+    esac
+  done
+
+  local compose_files=("-f" "${COMPOSE_DEV}")
+  if [[ "${use_host}" == "1" ]]; then
+    local host_ovr="${REPO_ROOT}/compose/dev.host.yml"
+    ensure_file "${host_ovr}"
+    compose_files+=("-f" "${host_ovr}")
+  fi
+
   case "${sub}" in
     up)
-      echo "[daneel] dev up (compose/dev.yml)"
-      "${DOCKER_COMPOSE[@]}" -f "${COMPOSE_DEV}" up -d
+      if [[ "${use_host}" == "1" ]]; then
+        echo "[daneel] dev up (compose/dev.yml + dev.host.yml)"
+      else
+        echo "[daneel] dev up (compose/dev.yml)"
+      fi
+      "${DOCKER_COMPOSE[@]}" "${compose_files[@]}" up -d "${remaining_args[@]}"
       ;;
     down)
-      echo "[daneel] dev down (compose/dev.yml)"
-      "${DOCKER_COMPOSE[@]}" -f "${COMPOSE_DEV}" down
+      if [[ "${use_host}" == "1" ]]; then
+        echo "[daneel] dev down (compose/dev.yml + dev.host.yml)"
+      else
+        echo "[daneel] dev down (compose/dev.yml)"
+      fi
+      "${DOCKER_COMPOSE[@]}" "${compose_files[@]}" down "${remaining_args[@]}"
       ;;
     shell)
-      # デフォルトサービス名は dev デスクトップ側を想定（compose の service 名に合わせて調整）
-      local svc="${1:-dev_desktop}"
+      # デフォルトサービス名は dev デスクトップ側を想定
+      local svc="${remaining_args[0]:-dev_desktop}"
       echo "[daneel] dev shell into service: ${svc}"
-      "${DOCKER_COMPOSE[@]}" -f "${COMPOSE_DEV}" exec "${svc}" bash
+      "${DOCKER_COMPOSE[@]}" "${compose_files[@]}" exec "${svc}" bash
       ;;
     *)
-      echo "Usage: $(basename "$0") dev {up|down|shell [service]}" >&2
+      echo "Usage: $(basename "$0") dev {up|down|shell} [--host]" >&2
       exit 1
       ;;
   esac

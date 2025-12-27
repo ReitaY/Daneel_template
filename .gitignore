@@ -1,2 +1,7 @@
 .DS_Store
 **/.DS_Store
+
+# ROS 2 colcon build directories
+build/
+install/
+log/
