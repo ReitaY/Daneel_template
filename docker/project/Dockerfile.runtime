@@ -30,3 +30,5 @@ FROM ${RUNTIME_BASE_IMAGE}
 #     && rm -rf /var/lib/apt/lists/*
 #
 # USER ${USER_NAME}
+
+RUN echo 'if [ -f /home/${USER_NAME}/ros2_ws/install/setup.bash ]; then source /home/${USER_NAME}/ros2_ws/install/setup.bash; fi' >> /home/${USER_NAME}/.bashrc
