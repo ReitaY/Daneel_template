@@ -8,16 +8,15 @@
 # ======================================================================
 ARG RUNTIME_BASE_IMAGE="ghcr.io/reitay/daneel-runtime:humble"
 FROM ${RUNTIME_BASE_IMAGE}
+ARG USER_NAME=daneel
 
 # ======================================================================
 # Optional: project-specific runtime customization
 # ----------------------------------------------------------------------
-# 1. Uncomment ARG/USER lines
-# 2. Uncomment the RUN block
-# 3. Add any additional packages you want to install
+# 1. Uncomment the RUN block
+# 2. Add any additional packages you want to install
 #    (e.g. extra ROS 2 packages, debugging tools, etc.)
 # ======================================================================
-# ARG USER_NAME=daneel
 #
 # USER root
 #
